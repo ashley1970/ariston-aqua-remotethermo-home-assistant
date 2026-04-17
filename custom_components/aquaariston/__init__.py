@@ -48,13 +48,14 @@ from .const import (
     TYPE_LYDOS,
     TYPE_LYDOS_HYBRID,
     TYPE_VELIS,
+    PARAM_BOOST_TEMPERATURE,
 )
 from .sensor import SENSORS
 from .switch import SWITCHES
 from .select import SELECTS
 
 DEFAULT_NAME = "Aqua Ariston"
-DEFAULT_MAX_RETRIES = 5
+DEFAULT_MAX_RETRIES = 3
 DEFAULT_POLLING = 1.0
 
 _LOGGER = logging.getLogger(__name__)
@@ -253,7 +254,12 @@ def setup(hass, config):
     def set_ariston_aqua_data(call):
         """Handle the service call to set the data."""
         # Start with mandatory parameter
+
+        _LOGGER.warning("Entity ID eval:")
+
         entity_id = call.data.get(ATTR_ENTITY_ID, "")
+        _LOGGER.warning("Entity ID:")
+        _LOGGER.warning(entity_id)
 
         try:
             domain = entity_id.split(".")[0]
@@ -277,6 +283,13 @@ def setup(hass, config):
                 data = call.data.get(PARAM_MODE, "")
                 if data != "":
                     parameter_list[PARAM_MODE] = str(data).lower()
+
+                _LOGGER.debug("Ariston Aqua boost temperature being set now...")
+                data = call.data.get(PARAM_BOOST_TEMPERATURE, "")
+                if data != "":
+                    parameter_list[PARAM_BOOST_TEMPERATURE] = str(data).lower()
+                    _LOGGER.debug("boost now set to:")
+                    _LOGGER.debug(str(data).lower())
 
                 data = call.data.get(PARAM_ON, "")
                 if data != "":

@@ -9,8 +9,6 @@ import threading
 import time
 from typing import Union
 import requests
-from datetime import datetime, timedelta
-from dateutil.relativedelta import relativedelta
 
 
 class AquaAristonHandler:
@@ -53,6 +51,8 @@ class AquaAristonHandler:
         - 'energy_use_in_week_periods' - energy use in the last week in periods.
         - 'energy_use_in_month_periods' - energy use in the last month in periods.
         - 'energy_use_in_year_periods' - energy use in the last year in periods.
+        - 'signal_strength' - energy use in the last year in periods.
+        - 'boost_temperature' - Boost maximum temperature.
         - API specific 'online_version' - API version online.
         - API specific 'update' - API update is available.
 
@@ -120,6 +120,9 @@ class AquaAristonHandler:
     _PARAM_ENERGY_USE_WEEK_PERIODS = "energy_use_in_week_periods"
     _PARAM_ENERGY_USE_MONTH_PERIODS = "energy_use_in_month_periods"
     _PARAM_ENERGY_USE_YEAR_PERIODS = "energy_use_in_year_periods"
+    _PARAM_SIGNAL_STRENGTH = "wifi_signal_strength"
+    _PARAM_BOOST_TEMPERATURE = "boost_temperature"
+
 
     _GET_REQUEST_MAIN = {
         _PARAM_CURRENT_TEMPERATURE,
@@ -131,6 +134,7 @@ class AquaAristonHandler:
         _PARAM_CLEANSE,
         _PARAM_ECO,
         _PARAM_TIMER,
+        _PARAM_BOOST_TEMPERATURE,
     }
     _GET_REQUEST_SHOWERS = {
         _PARAM_REQUIRED_SHOWERS,
@@ -394,7 +398,8 @@ class AquaAristonHandler:
                 self._PARAM_REQUIRED_TEMPERATURE,
                 self._PARAM_CLEANSE_TEMPERATURE,
                 self._PARAM_CLEANSE_MIN,
-                self._PARAM_CLEANSE_MAX
+                self._PARAM_CLEANSE_MAX,
+                self._PARAM_BOOST_TEMPERATURE,
             }:
                 self._ariston_sensors[sensor_all][self._UNITS] = "°C"
             if sensor_all in {
@@ -537,19 +542,18 @@ class AquaAristonHandler:
         self._request_list_high_prio = []
         if self._valid_requests[self._REQUEST_GET_MAIN]:
             self._request_list_high_prio.append(self._REQUEST_GET_MAIN)
-        if self._valid_requests[self._REQUEST_GET_USE]:
-            self._request_list_high_prio.append(self._REQUEST_GET_USE)
-        if self._valid_requests[self._REQUEST_GET_TIME_PROG]:
-            self._request_list_high_prio.append(self._REQUEST_GET_TIME_PROG)
-                
+        if self._valid_requests[self._REQUEST_GET_SHOWERS]:
+            self._request_list_high_prio.append(self._REQUEST_GET_SHOWERS)
+        if self._valid_requests[self._REQUEST_GET_CLEANSE]:
+            self._request_list_high_prio.append(self._REQUEST_GET_CLEANSE)
+        if self._valid_requests[self._REQUEST_GET_ERROR]:
+            self._request_list_high_prio.append(self._REQUEST_GET_ERROR)
         # prepare list of lower priority
         self._request_list_low_prio = []
-        if self._valid_requests[self._REQUEST_GET_SHOWERS]:
-            self._request_list_low_prio.append(self._REQUEST_GET_SHOWERS)
-        if self._valid_requests[self._REQUEST_GET_CLEANSE]:
-            self._request_list_low_prio.append(self._REQUEST_GET_CLEANSE)
-        if self._valid_requests[self._REQUEST_GET_ERROR]:
-            self._request_list_low_prio.append(self._REQUEST_GET_ERROR)
+        if self._valid_requests[self._REQUEST_GET_TIME_PROG]:
+            self._request_list_low_prio.append(self._REQUEST_GET_TIME_PROG)
+        if self._valid_requests[self._REQUEST_GET_USE]:
+            self._request_list_low_prio.append(self._REQUEST_GET_USE)
         if self._valid_requests[self._REQUEST_GET_VERSION]:
             self._request_list_low_prio.append(self._REQUEST_GET_VERSION)
 
@@ -1102,6 +1106,19 @@ class AquaAristonHandler:
                 except KeyError:
                     self._ariston_sensors[self._PARAM_REQUIRED_TEMPERATURE][self._VALUE] = None
 
+
+                try:
+                    self._ariston_sensors[self._PARAM_BOOST_TEMPERATURE][self._VALUE] = \
+                        self._ariston_main_data["boostReqTemp"]
+                    """self._LOGGER.warning("setting boost temp to value")
+                    self._LOGGER.warning(self._ariston_main_data["boostReqTemp"])"""
+                     
+                except KeyError:
+                    self._ariston_sensors[self._PARAM_BOOST_TEMPERATURE][self._VALUE] = None
+                    self._LOGGER.warning("setting boost temp to none1")
+                    self._LOGGER.warning(self)
+
+
                 try:
                     self._ariston_sensors[self._PARAM_SHOWERS][self._VALUE] = \
                         self._ariston_main_data["avShw"]
@@ -1142,6 +1159,11 @@ class AquaAristonHandler:
                 self._ariston_sensors[self._PARAM_CLEANSE][self._VALUE] = None
                 self._ariston_sensors[self._PARAM_ECO][self._VALUE] = None
                 self._ariston_sensors[self._PARAM_TIMER][self._VALUE] = None
+                self._ariston_sensors[self._PARAM_BOOST_TEMPERATURE][self._VALUE] = None
+                self._LOGGER.warning("setting boost temp to none xxx")
+                self._LOGGER.warning(self)
+
+
 
         elif request_type == self._REQUEST_GET_SHOWERS:
 
@@ -1224,58 +1246,28 @@ class AquaAristonHandler:
                 self._ariston_sensors[self._PARAM_TIME_PROGRAM][self._VALUE] = None
 
         elif request_type == self._REQUEST_GET_USE:
-                 
 
             if self.available and self._ariston_use_data != {}:
-
-                now = datetime.now()
 
                 try:
                     total_use = 0
                     self._ariston_sensors[self._PARAM_ENERGY_USE_DAY_PERIODS][self._VALUE] = {}
-
-                    use_data = self._ariston_use_data[0]['v']
-                    periods = len(use_data)
-                    
-                    
-                    # Find start of current 2-hour window containing NOW
-                    current_period_start = now.replace(minute=0, second=0, microsecond=0)
-                    current_period_start = current_period_start.replace(hour=(now.hour // 2) * 2)
-
-                    # The last fully completed period ends at current_period_start
-                    last_completed_period_end = current_period_start
-                    last_completed_period_start = last_completed_period_end - timedelta(hours=2)
-
-                    for i in range(periods):
-                        start = last_completed_period_start  - timedelta(hours=2 * (periods - i - 1))
-                        end = start + timedelta(hours=2)
-                        period_label = f"{start.strftime('%H')} - {end.strftime('%H')}"
-                        # Assign most recent to highest-numbered period
-                        self._ariston_sensors[self._PARAM_ENERGY_USE_DAY_PERIODS][self._VALUE][period_label] = round(use_data[i], 2)
-                        total_use += use_data[i]
-
+                    for iteration, item in enumerate(self._ariston_use_data[0]['v'], 1):
+                        self._ariston_sensors[self._PARAM_ENERGY_USE_DAY_PERIODS][self._VALUE][
+                            'Period' + str(iteration)] = round(item, 2)
+                        total_use += item
                     self._ariston_sensors[self._PARAM_ENERGY_USE_DAY][self._VALUE] = round(total_use, 2)
                 except KeyError:
                     self._ariston_sensors[self._PARAM_ENERGY_USE_DAY][self._VALUE] = None
                     self._ariston_sensors[self._PARAM_ENERGY_USE_DAY_PERIODS][self._VALUE] = None
 
-
                 try:
                     total_use = 0
                     self._ariston_sensors[self._PARAM_ENERGY_USE_WEEK_PERIODS][self._VALUE] = {}
-
-                    use_data = self._ariston_use_data[1]['v']
-                    periods = len(use_data)
-
-                    for i in range(periods):
-                        # Calculate date counting backwards from yesterday
-                        day_date = now.date() - timedelta(days=(periods - i))
-                        # Full weekday name, e.g. "Monday"
-                        period_label = day_date.strftime('%A')
-
-                        self._ariston_sensors[self._PARAM_ENERGY_USE_WEEK_PERIODS][self._VALUE][period_label] = round(use_data[i], 2)
-                        total_use += use_data[i]
-
+                    for iteration, item in enumerate(self._ariston_use_data[1]['v'], 1):
+                        self._ariston_sensors[self._PARAM_ENERGY_USE_WEEK_PERIODS][self._VALUE][
+                            'Period' + str(iteration)] = round(item, 2)
+                        total_use += item
                     self._ariston_sensors[self._PARAM_ENERGY_USE_WEEK][self._VALUE] = round(total_use, 2)
                 except KeyError:
                     self._ariston_sensors[self._PARAM_ENERGY_USE_WEEK][self._VALUE] = None
@@ -1284,21 +1276,10 @@ class AquaAristonHandler:
                 try:
                     total_use = 0
                     self._ariston_sensors[self._PARAM_ENERGY_USE_MONTH_PERIODS][self._VALUE] = {}
-
-                    use_data = self._ariston_use_data[2]['v']
-                    periods = len(use_data)  # Should be 15
-
-                    for i in range(periods):
-                       # Calculate start date of each 2-day period counting backward from yesterday
-                        start_date = now.date() - timedelta(days=2 * (periods - i))
-                        end_date = start_date + timedelta(days=1)
-
-                        # Format as "dd-dd MMM", e.g., "10-11 Oct"
-                        period_label = f"{start_date.day:02d}-{end_date.day:02d} {start_date.strftime('%b')}"
-
-                        self._ariston_sensors[self._PARAM_ENERGY_USE_MONTH_PERIODS][self._VALUE][period_label] = round(use_data[i], 2)
-                        total_use += use_data[i]
-
+                    for iteration, item in enumerate(self._ariston_use_data[2]['v'], 1):
+                        self._ariston_sensors[self._PARAM_ENERGY_USE_MONTH_PERIODS][self._VALUE][
+                            'Period' + str(iteration)] = round(item, 2)
+                        total_use += item
                     self._ariston_sensors[self._PARAM_ENERGY_USE_MONTH][self._VALUE] = round(total_use, 2)
                 except KeyError:
                     self._ariston_sensors[self._PARAM_ENERGY_USE_MONTH][self._VALUE] = None
@@ -1307,20 +1288,10 @@ class AquaAristonHandler:
                 try:
                     total_use = 0
                     self._ariston_sensors[self._PARAM_ENERGY_USE_YEAR_PERIODS][self._VALUE] = {}
-
-                    use_data = self._ariston_use_data[3]['v']
-                    periods = len(use_data)
-
-                    # Last fully completed month (exclude current ongoing month)
-                    last_completed_month = now.replace(day=1) - relativedelta(months=1)
-
-                    for i in range(periods):
-                        month_date = last_completed_month - relativedelta(months=(periods - i - 1))
-                        period_label = month_date.strftime('%B')  # Full month name (e.g., "October")
-
-                        self._ariston_sensors[self._PARAM_ENERGY_USE_YEAR_PERIODS][self._VALUE][period_label] = round(use_data[i], 2)
-                        total_use += use_data[i]
-
+                    for iteration, item in enumerate(self._ariston_use_data[3]['v'], 1):
+                        self._ariston_sensors[self._PARAM_ENERGY_USE_YEAR_PERIODS][self._VALUE][
+                            'Period' + str(iteration)] = round(item, 2)
+                        total_use += item
                     self._ariston_sensors[self._PARAM_ENERGY_USE_YEAR][self._VALUE] = round(total_use, 2)
                 except KeyError:
                     self._ariston_sensors[self._PARAM_ENERGY_USE_YEAR][self._VALUE] = None
@@ -1394,6 +1365,13 @@ class AquaAristonHandler:
                         elif parameter == self._PARAM_REQUIRED_SHOWERS:
 
                             self._ariston_sensors[parameter][self._VALUE] = value
+
+                        elif parameter == self._PARAM_BOOST_TEMPERATURE:
+                            self._LOGGER.warning("setting breakpoint")
+                            self._LOGGER.warning(self)
+
+                            
+
 
             except KeyError:
                 continue

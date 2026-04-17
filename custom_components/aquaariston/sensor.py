@@ -4,14 +4,22 @@ from datetime import timedelta
 
 from homeassistant.const import CONF_NAME, CONF_SENSORS
 from homeassistant.helpers.entity import Entity
-from homeassistant.const import (
-    UnitOfEnergy,
-)
-
 from homeassistant.components.sensor import (
     SensorDeviceClass,
-    SensorStateClass,
 )
+
+DEVICE_CLASS_BATTERY=SensorDeviceClass.BATTERY
+DEVICE_CLASS_CURRENT=SensorDeviceClass.CURRENT
+DEVICE_CLASS_ENERGY=SensorDeviceClass.ENERGY
+DEVICE_CLASS_HUMIDITY=SensorDeviceClass.HUMIDITY
+DEVICE_CLASS_ILLUMINANCE=SensorDeviceClass.ILLUMINANCE
+DEVICE_CLASS_POWER=SensorDeviceClass.POWER
+DEVICE_CLASS_POWER_FACTOR=SensorDeviceClass.POWER_FACTOR
+DEVICE_CLASS_PRESSURE=SensorDeviceClass.PRESSURE
+DEVICE_CLASS_SIGNAL_STRENGTH=SensorDeviceClass.SIGNAL_STRENGTH
+"""DEVICE_CLASS_TEMPERATURE=SensorDeviceClass.TEMPERATURE"""
+DEVICE_CLASS_TIMESTAMP=SensorDeviceClass.TIMESTAMP
+DEVICE_CLASS_VOLTAGE=SensorDeviceClass.VOLTAGE
 
 from .const import (
     DATA_ARISTONAQUA,
@@ -38,6 +46,8 @@ from .const import (
     PARAM_ENERGY_USE_YEAR_PERIODS,
     PARAM_REQUIRED_SHOWERS,
     PARAM_TEMPERATURE_MODE,
+    PARAM_SIGNAL_STRENGTH,
+    PARAM_BOOST_TEMPERATURE,
     VAL_PROGRAM,
     VAL_SHOWERS,
 )
@@ -62,6 +72,8 @@ SENSOR_ENERGY_USE_MONTH = "Energy Use in the Last Month"
 SENSOR_ENERGY_USE_YEAR = "Energy Use in the Last Year"
 SENSOR_REQUIRED_SHOWERS = "Required Showers"
 SENSOR_TEMPERATURE_MODE = "Temperature Mode"
+SENSOR_SIGNAL_STRENGTH = "Signal Strength"
+SENSOR_BOOST_TEMPERATURE = "Boost Temperature"
 
 _LOGGER = logging.getLogger(__name__)
 
@@ -75,12 +87,14 @@ SENSORS = {
     PARAM_TIMER: [SENSOR_TIMER, None, "mdi:timer"],
     PARAM_CLEANSE_TEMPERATURE: [SENSOR_CLEANSE_TEMPERATURE, SensorDeviceClass.TEMPERATURE, "mdi:thermometer"],
     PARAM_TIME_PROGRAM: [SENSOR_TIME_PROGRAM, None, "mdi:calendar-month"],
-    PARAM_ENERGY_USE_DAY: [SENSOR_ENERGY_USE_DAY, SensorDeviceClass.ENERGY, "mdi:cash"],
-    PARAM_ENERGY_USE_WEEK: [SENSOR_ENERGY_USE_WEEK, SensorDeviceClass.ENERGY, "mdi:cash"],
-    PARAM_ENERGY_USE_MONTH: [SENSOR_ENERGY_USE_MONTH, SensorDeviceClass.ENERGY, "mdi:cash"],
-    PARAM_ENERGY_USE_YEAR: [SENSOR_ENERGY_USE_YEAR, SensorDeviceClass.ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_DAY: [SENSOR_ENERGY_USE_DAY, DEVICE_CLASS_ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_WEEK: [SENSOR_ENERGY_USE_WEEK, DEVICE_CLASS_ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_MONTH: [SENSOR_ENERGY_USE_MONTH, DEVICE_CLASS_ENERGY, "mdi:cash"],
+    PARAM_ENERGY_USE_YEAR: [SENSOR_ENERGY_USE_YEAR, DEVICE_CLASS_ENERGY, "mdi:cash"],
     PARAM_REQUIRED_SHOWERS: [SENSOR_REQUIRED_SHOWERS, None, "mdi:shower-head"],
     PARAM_TEMPERATURE_MODE: [SENSOR_TEMPERATURE_MODE, None, "mdi:thermometer"],
+    PARAM_SIGNAL_STRENGTH: [SENSOR_SIGNAL_STRENGTH, DEVICE_CLASS_SIGNAL_STRENGTH, "mdi:cursor-pointer"],
+    PARAM_BOOST_TEMPERATURE: [SENSOR_BOOST_TEMPERATURE, SensorDeviceClass.TEMPERATURE, "mdi:thermometer"],
 }
 
 
@@ -177,6 +191,10 @@ class AristonAquaSensor(Entity):
         """Return True if entity is available."""
         if self._sensor_type == PARAM_TEMPERATURE_MODE:
             return self._api.available
+        if self._sensor_type == PARAM_SIGNAL_STRENGTH:
+            return self._api.available
+        if self._sensor_type == PARAM_BOOST_TEMPERATURE:
+            return self._api.available
         return self._api.available \
             and not self._api.sensor_values[self._sensor_type][VALUE] is None
 
@@ -188,6 +206,12 @@ class AristonAquaSensor(Entity):
                 return
             if not self._api.available:
                 return
+            """_LOGGER.warning("setting param type:")"""
+            """_LOGGER.warning(self._sensor_type)"""
+            """_LOGGER.warning(self._api.sensor_values)"""
+            """_LOGGER.warning("VAlue:")"""
+            """_LOGGER.warning(self._api.sensor_values[self._sensor_type][VALUE])"""
+                   
             if not self._api.sensor_values[self._sensor_type][VALUE] is None:
                 if self._sensor_type == PARAM_TIME_PROGRAM:
                     if self._api.sensor_values[self._sensor_type][VALUE] != {}:
@@ -240,4 +264,6 @@ class AristonAquaSensor(Entity):
                     self._attrs = self._api.sensor_values[self._sensor_type][VALUE]
 
         except KeyError:
-            _LOGGER.warning("Problem updating sensors for Ariston Aqua")
+           _LOGGER.warning("Key error:")
+           _LOGGER.warning(self)
+           _LOGGER.warning(self._sensor_type)

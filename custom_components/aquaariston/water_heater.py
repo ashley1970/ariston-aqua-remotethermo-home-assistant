@@ -3,14 +3,20 @@ import logging
 from datetime import timedelta
 
 from homeassistant.components.water_heater import (
-    WaterHeaterEntity,
-    WaterHeaterEntityFeature
+   WaterHeaterEntity,
+   WaterHeaterEntityFeature,
 )
+
+MyWaterHeaterEntity=WaterHeaterEntity()
+
 from homeassistant.const import (
     ATTR_TEMPERATURE,
     CONF_NAME,
     UnitOfTemperature,
 )
+
+TEMP_CELSIUS=UnitOfTemperature.CELSIUS
+TEMP_FARENHEIT=UnitOfTemperature.FAHRENHEIT
 
 from .const import (
     DATA_ARISTONAQUA,
@@ -22,6 +28,7 @@ from .const import (
     PARAM_CURRENT_TEMPERATURE,
     PARAM_HEATING,
     PARAM_MODE,
+    PARAM_BOOST_TEMPERATURE,
 )
 
 ACTION_IDLE = "idle"
@@ -89,7 +96,7 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
     @property
     def supported_features(self):
         """Return the list of supported features."""
-        return WaterHeaterEntityFeature.OPERATION_MODE | WaterHeaterEntityFeature.TARGET_TEMPERATURE
+        return WaterHeaterEntityFeature.TARGET_TEMPERATURE | WaterHeaterEntityFeature.OPERATION_MODE
 
     @property
     def current_temperature(self):
@@ -101,9 +108,18 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
         return current_temp
 
     @property
+    def boost_temperature(self):
+        """Return the boost temperature"""
+        try:
+            boost_temp = self._api.sensor_values[PARAM_BOOST_TEMPERATURE][VALUE]
+        except KeyError:
+            return None
+        return boost_temp
+
+    @property
     def temperature_unit(self):
         """Return the unit of measurement."""
-        return UnitOfTemperature.CELSIUS
+        return TEMP_CELSIUS
 
     @property
     def min_temp(self):
@@ -180,6 +196,12 @@ class AristonAquaWaterHeater(WaterHeaterEntity):
         new_temperature = kwargs.get(ATTR_TEMPERATURE)
         if new_temperature is not None:
             self._api.set_http_data(**{PARAM_REQUIRED_TEMPERATURE: new_temperature})
+
+    def set_boost_temperature(self, **kwargs):
+        """Set new target boost temperature."""
+        new_boost_temperature = kwargs.get(ATTR_TEMPERATURE)
+        if new_boost_temperature is not None:
+            self._api.set_http_data(**{PARAM_BOOST_TEMPERATURE: new_boost_temperature})
 
     def set_operation_mode(self, operation_mode):
         """Set operation mode."""

@@ -27,9 +27,10 @@ PARAM_ENERGY_USE_YEAR_PERIODS = "energy_use_in_year_periods"
 PARAM_REQUIRED_SHOWERS = "required_showers"
 PARAM_REQUIRED_SHOWERS_MAX = "max_required_showers"
 PARAM_TEMPERATURE_MODE = "temperature_mode"
-
+PARAM_SIGNAL_STRENGTH = "signal_strength"
 PARAM_ONLINE = "online"
 PARAM_CHANGING_DATA = "changing_data"
+PARAM_BOOST_TEMPERATURE = "boost_temperature"
 
 VAL_OFF = "off"
 VAL_ON = "on"
